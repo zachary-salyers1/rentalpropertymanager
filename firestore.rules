@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user is an admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Clients collection rules - Admin only
+    match /clients/{clientId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin();
+    }
+
+    // Properties collection rules - Public read access, admin write access
+    match /properties/{propertyId} {
+      allow read: if true;  // Allow public read access to properties
+      allow write: if isAuthenticated() && isAdmin();
+    }
+
+    // Bookings collection rules - Admin only
+    match /bookings/{bookingId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated() && isAdmin();
+    }
+
+    // Users collection rules - User can read/write own data, admin can read/write all
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow write: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+    }
+  }
+}
